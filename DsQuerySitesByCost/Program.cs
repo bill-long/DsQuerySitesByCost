@@ -104,7 +104,7 @@ namespace DsQuerySitesByCostTool
             var costInfoArray = new DS_SITE_COST_INFO[args.Length];
             for (var x = 0; x < costInfoArray.Length; x++)
             {
-                costInfoArray[x] = (DS_SITE_COST_INFO)Marshal.PtrToStructure((IntPtr) (costInfoPtr + (Marshal.SizeOf(typeof(DS_SITE_COST_INFO))*x)), typeof(DS_SITE_COST_INFO));
+                costInfoArray[x] = (DS_SITE_COST_INFO)Marshal.PtrToStructure((IntPtr) ((long)costInfoPtr + (Marshal.SizeOf(typeof(DS_SITE_COST_INFO))*x)), typeof(DS_SITE_COST_INFO));
             }
 
             var columnSize = args.Max(a => a.Length);
