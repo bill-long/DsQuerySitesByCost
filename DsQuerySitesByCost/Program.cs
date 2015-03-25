@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.DirectoryServices;
 using System.Linq;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
@@ -91,8 +93,19 @@ namespace DsQuerySitesByCostTool
             Console.WriteLine();
             Console.WriteLine("Local site name: " + localSiteName);
 
+            string[] sites;
+            if (args.Length > 0)
+            {
+                sites = args;
+            }
+            else
+            {
+                sites = GetAllSiteNames();
+                Console.WriteLine("Found " + sites.Length + " sites.");
+            }
+
             IntPtr costInfoPtr;
-            var queryResult = DsQuerySitesByCost(istgHandle, localSiteName, args, (uint) args.Length,
+            var queryResult = DsQuerySitesByCost(istgHandle, localSiteName, sites, (uint) sites.Length,
                 0,
                 out costInfoPtr);
             if (queryResult != 0 || costInfoPtr == IntPtr.Zero)
@@ -101,13 +114,13 @@ namespace DsQuerySitesByCostTool
                 return;
             }
 
-            var costInfoArray = new DS_SITE_COST_INFO[args.Length];
+            var costInfoArray = new DS_SITE_COST_INFO[sites.Length];
             for (var x = 0; x < costInfoArray.Length; x++)
             {
                 costInfoArray[x] = (DS_SITE_COST_INFO)Marshal.PtrToStructure((IntPtr) ((long)costInfoPtr + (Marshal.SizeOf(typeof(DS_SITE_COST_INFO))*x)), typeof(DS_SITE_COST_INFO));
             }
 
-            var columnSize = args.Max(a => a.Length);
+            var columnSize = sites.Max(a => a.Length);
             if (columnSize < 9) columnSize = 9;
             columnSize += 5;
             Console.WriteLine();
@@ -116,11 +129,11 @@ namespace DsQuerySitesByCostTool
             {
                 if (costInfoArray[x].errorCode != 0)
                 {
-                    WriteWithPadding(args[x], "Error: " + costInfoArray[x].errorCode, columnSize);
+                    WriteWithPadding(sites[x], "Error: " + costInfoArray[x].errorCode, columnSize);
                 }
                 else
                 {
-                    WriteWithPadding(args[x], costInfoArray[x].cost.ToString(), columnSize);
+                    WriteWithPadding(sites[x], costInfoArray[x].cost.ToString(), columnSize);
                 }
             }
         }
@@ -131,6 +144,23 @@ namespace DsQuerySitesByCostTool
             Console.Write(firstColumn);
             for (var x = 0; x < padding; x++) Console.Write(" ");
             Console.WriteLine(secondColumn);
+        }
+
+        private static string[] GetAllSiteNames()
+        {
+            var rootDSE = new DirectoryEntry("LDAP://RootDSE");
+            var configNC = new DirectoryEntry("LDAP://" + rootDSE.Properties["configurationNamingContext"][0]);
+            var sitesContainer = new DirectoryEntry("LDAP://CN=Sites," + configNC.Properties["distinguishedName"][0]);
+            var siteFinder = new DirectorySearcher(sitesContainer, "(objectClass=site)");
+            siteFinder.PageSize = 100;
+            var results = siteFinder.FindAll();
+            var siteNames = new string[results.Count];
+            for (var x = 0; x < results.Count; x++)
+            {
+                siteNames[x] = results[x].Properties["name"][0].ToString();
+            }
+
+            return siteNames;
         }
     }
 }
